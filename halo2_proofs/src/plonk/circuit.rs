@@ -549,6 +549,11 @@ pub trait Circuit<F: Field> {
     fn synthesize(&self, config: Self::Config, layouter: impl Layouter<F>) -> Result<(), Error>;
 }
 
+/// A placeholder which will be resolved as a fixed column during optimization.
+#[cfg_attr(feature = "unstable-dynamic-lookups", derive(Clone, Copy, Debug))]
+#[cfg(feature = "unstable-dynamic-lookups")]
+pub struct VirtualColumn(pub(crate) DynamicTable);
+
 /// Low-degree expression representing an identity that must hold over the committed columns.
 #[derive(Clone)]
 pub enum Expression<F> {
@@ -556,6 +561,11 @@ pub enum Expression<F> {
     Constant(F),
     /// This is a virtual selector
     Selector(Selector),
+    /// A placeholder which will be resolved as a fixed column during optimization.
+    /// Virtual columns are used internally by dynamic tables.
+    /// There is no way for a user to construct a virtual column.
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    VirtualColumn(VirtualColumn),
     /// This is a fixed column queried at a certain relative location
     Fixed(FixedQuery),
     /// This is an advice (witness) column queried at a certain relative location
@@ -580,6 +590,7 @@ impl<F: Field> Expression<F> {
         &self,
         constant: &impl Fn(F) -> T,
         selector_column: &impl Fn(Selector) -> T,
+        #[cfg(feature = "unstable-dynamic-lookups")] virtual_column: &impl Fn(VirtualColumn) -> T,
         fixed_column: &impl Fn(FixedQuery) -> T,
         advice_column: &impl Fn(AdviceQuery) -> T,
         instance_column: &impl Fn(InstanceQuery) -> T,
@@ -591,6 +602,8 @@ impl<F: Field> Expression<F> {
         match self {
             Expression::Constant(scalar) => constant(*scalar),
             Expression::Selector(selector) => selector_column(*selector),
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            Expression::VirtualColumn(virtual_col) => virtual_column(*virtual_col),
             Expression::Fixed(query) => fixed_column(*query),
             Expression::Advice(query) => advice_column(*query),
             Expression::Instance(query) => instance_column(*query),
@@ -598,6 +611,8 @@ impl<F: Field> Expression<F> {
                 let a = a.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -612,6 +627,8 @@ impl<F: Field> Expression<F> {
                 let a = a.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -623,6 +640,8 @@ impl<F: Field> Expression<F> {
                 let b = b.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -637,6 +656,8 @@ impl<F: Field> Expression<F> {
                 let a = a.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -648,6 +669,8 @@ impl<F: Field> Expression<F> {
                 let b = b.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -662,6 +685,8 @@ impl<F: Field> Expression<F> {
                 let a = a.evaluate(
                     constant,
                     selector_column,
+                    #[cfg(feature = "unstable-dynamic-lookups")]
+                    virtual_column,
                     fixed_column,
                     advice_column,
                     instance_column,
@@ -680,6 +705,8 @@ impl<F: Field> Expression<F> {
         match self {
             Expression::Constant(_) => 0,
             Expression::Selector(_) => 1,
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            Expression::VirtualColumn(_) => 1,
             Expression::Fixed { .. } => 1,
             Expression::Advice { .. } => 1,
             Expression::Instance { .. } => 1,
@@ -700,6 +727,8 @@ impl<F: Field> Expression<F> {
         self.evaluate(
             &|_| false,
             &|selector| selector.is_simple(),
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            &|_| false,
             &|_| false,
             &|_| false,
             &|_| false,
@@ -727,6 +756,8 @@ impl<F: Field> Expression<F> {
                     None
                 }
             },
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            &|_| None,
             &|_| None,
             &|_| None,
             &|_| None,
@@ -743,6 +774,8 @@ impl<F: std::fmt::Debug> std::fmt::Debug for Expression<F> {
         match self {
             Expression::Constant(scalar) => f.debug_tuple("Constant").field(scalar).finish(),
             Expression::Selector(selector) => f.debug_tuple("Selector").field(selector).finish(),
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            Expression::VirtualColumn(vc) => f.debug_tuple("VirtualColumn").field(vc).finish(),
             // Skip enum variant and print query struct directly to maintain backwards compatibility.
             Expression::Fixed(FixedQuery {
                 index,
@@ -1389,6 +1422,8 @@ impl<F: Field> ConstraintSystem<F> {
 
                     selector_replacements[selector.0].clone()
                 },
+                #[cfg(feature = "unstable-dynamic-lookups")]
+                &|query| Expression::VirtualColumn(query),
                 &|query| Expression::Fixed(query),
                 &|query| Expression::Advice(query),
                 &|query| Expression::Instance(query),
