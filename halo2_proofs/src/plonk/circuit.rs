@@ -1,4 +1,6 @@
 use core::cmp::max;
+#[cfg(feature = "unstable-dynamic-lookups")]
+use core::fmt;
 use core::ops::{Add, Mul};
 use ff::Field;
 use std::{
@@ -332,6 +334,69 @@ impl TableColumn {
     pub fn enable_equality<F: Field>(&self, meta: &mut ConstraintSystem<F>) {
         meta.enable_equality(self.inner)
     }
+}
+
+/// Users of halo2 cannot use this struct.
+/// The index of a dynamic table in `ConstraintSystem.dynamic_tables`.
+/// The `index + 1` serves as this dynamic table's unique tag value.
+#[cfg_attr(
+    feature = "unstable-dynamic-lookups",
+    derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)
+)]
+#[cfg(feature = "unstable-dynamic-lookups")]
+pub struct DynamicTable(usize);
+
+#[cfg(feature = "unstable-dynamic-lookups")]
+impl DynamicTable {
+    pub(crate) fn index(self) -> usize {
+        self.0
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_index(index: usize) -> Self {
+        DynamicTable(index)
+    }
+
+    pub(crate) fn tag(self) -> u64 {
+        self.0 as u64 + 1
+    }
+}
+
+/// `DynamicTable` is used to track the columns and rows comprise a dynamic lookup table.
+/// `DynamicTable` are constructed in the configuration phase by `create_dynamic_table`.
+/// To include a row of a region in a dynamic table use `add_row_to_table` during synthesize.
+#[cfg_attr(
+    feature = "unstable-dynamic-lookups",
+    derive(Clone, Debug, Eq, PartialEq, Hash)
+)]
+#[cfg(feature = "unstable-dynamic-lookups")]
+pub struct DynamicTableInfo {
+    pub(crate) name: String,
+    pub(crate) index: DynamicTable,
+    /// Columns contained in this table, excluding the tag column.
+    pub(crate) columns: Vec<Column<Any>>,
+}
+
+#[cfg(feature = "unstable-dynamic-lookups")]
+impl fmt::Display for DynamicTableInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DynamicTable {} ('{}')", self.index.0, self.name)
+    }
+}
+
+/// Gate a dynamic lookup with a selector expression.
+/// The table tag, and all lookup expressions will be multiplied by the selector expression.
+#[cfg_attr(feature = "unstable-dynamic-lookups", derive(Debug))]
+#[cfg(feature = "unstable-dynamic-lookups")]
+pub struct DynamicTableMap<F> {
+    /// The table tag, and all lookup expressions will be multiplied by the selector expression.
+    /// ## Safety
+    ///
+    /// The selector expression must evalute to 1 or 0.
+    /// Otherwise you may lookup values in a diffrent lookup table.
+    pub selector: Expression<F>,
+    /// A map of lookup expressions to table columns
+    pub table_map: Vec<(Expression<F>, Column<Any>)>,
 }
 
 /// This trait allows a [`Circuit`] to direct some backend to assign a witness
@@ -941,6 +1006,13 @@ pub struct ConstraintSystem<F: Field> {
     /// fixed column that they were compressed into. This is just used by dev
     /// tooling right now.
     pub(crate) selector_map: Vec<Column<Fixed>>,
+    /// Like selector_map, but for dynamic tables.
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    pub(crate) dynamic_table_tag_map: Vec<Column<Fixed>>,
+
+    /// A map between `DynamicTable.index` and `DynamicTableInfo`,
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    pub(crate) dynamic_tables: Vec<DynamicTableInfo>,
 
     pub(crate) gates: Vec<Gate<F>>,
     pub(crate) advice_queries: Vec<(Column<Advice>, Rotation)>,
@@ -1001,6 +1073,10 @@ impl<F: Field> Default for ConstraintSystem<F> {
             num_instance_columns: 0,
             num_selectors: 0,
             selector_map: vec![],
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            dynamic_table_tag_map: vec![],
+            #[cfg(feature = "unstable-dynamic-lookups")]
+            dynamic_tables: vec![],
             gates: vec![],
             fixed_queries: Vec::new(),
             advice_queries: Vec::new(),
