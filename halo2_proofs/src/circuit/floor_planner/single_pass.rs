@@ -5,6 +5,8 @@ use std::marker::PhantomData;
 
 use ff::Field;
 
+#[cfg(feature = "unstable-dynamic-lookups")]
+use crate::plonk::DynamicTable;
 use crate::{
     circuit::{
         layouter::{RegionColumn, RegionLayouter, RegionShape, TableLayouter},
@@ -273,6 +275,13 @@ impl<'r, 'a, F: Field, CS: Assignment<F> + 'a> RegionLayouter<F>
             selector,
             *self.layouter.regions[*self.region_index] + offset,
         )
+    }
+
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    fn add_to_lookup(&mut self, table: DynamicTable, offset: usize) -> Result<(), Error> {
+        self.layouter
+            .cs
+            .add_row_to_table(table, *self.layouter.regions[*self.region_index] + offset)
     }
 
     fn assign_advice<'v>(

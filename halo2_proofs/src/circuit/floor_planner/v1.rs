@@ -391,6 +391,17 @@ impl<'r, 'a, F: Field, CS: Assignment<F> + 'a> RegionLayouter<F> for V1Region<'r
         )
     }
 
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    fn add_to_lookup(
+        &mut self,
+        table: crate::plonk::DynamicTable,
+        offset: usize,
+    ) -> Result<(), Error> {
+        self.plan
+            .cs
+            .add_row_to_table(table, *self.plan.regions[*self.region_index] + offset)
+    }
+
     fn assign_advice<'v>(
         &'v mut self,
         annotation: &'v (dyn Fn() -> String + 'v),
