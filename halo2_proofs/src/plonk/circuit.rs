@@ -434,6 +434,10 @@ pub trait Assignment<F: Field> {
         A: FnOnce() -> AR,
         AR: Into<String>;
 
+    /// Adds a row in the provided dynamic lookup table.
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    fn add_row_to_table(&mut self, table: DynamicTable, row: usize) -> Result<(), Error>;
+
     /// Queries the cell of an instance column at a particular absolute row.
     ///
     /// Returns the cell's value, if known.
