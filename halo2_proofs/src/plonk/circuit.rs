@@ -1412,6 +1412,124 @@ impl<F: Field> ConstraintSystem<F> {
         });
     }
 
+    #[cfg(feature = "unstable-dynamic-lookups")]
+    pub(crate) fn compress_dynamic_table_tags(
+        mut self,
+        dynamic_tables: &[Vec<bool>],
+    ) -> (Self, Vec<Vec<F>>)
+    where
+        F: PrimeField,
+    {
+        assert!(self.dynamic_table_tag_map.is_empty());
+        assert_eq!(self.dynamic_tables.len(), dynamic_tables.len());
+
+        let exclusion_matrix = compress_selectors::exclusion_matrix(dynamic_tables, |rows| {
+            // true means the row is included in this dynamic table.
+            rows.iter().cloned()
+        });
+
+        // This is the same algorithm used by compress_selectors::process.
+        // Could an exponential optimization be worth the cost,
+        // since compress_dynamic_table_tags is fixed for a given circuit?
+
+        // Virtual tag columns that we've added to combinations already.
+        let mut added = vec![false; dynamic_tables.len()];
+        let mut assignments: Vec<Vec<F>> = Vec::new();
+        let mut dynamic_table_tag_map = vec![None; dynamic_tables.len()];
+
+        for (i, tag_col_rows) in dynamic_tables.iter().enumerate() {
+            if added[i] {
+                continue;
+            }
+            added[i] = true;
+            let mut combination: Vec<_> = vec![(i, tag_col_rows)];
+
+            // Try to find other virtual tag columns that can join this one.
+            'try_columns: for (j, tag_col) in dynamic_tables.iter().enumerate().skip(i + 1) {
+                // Skip columns that have been added to previous combinations
+                if added[j] {
+                    continue 'try_columns;
+                }
+
+                // Is this virtual tag column excluded from co-existing in the same
+                // combination with any of the other virtual tag column so far?
+                for (i, _) in combination.iter() {
+                    if exclusion_matrix[j][*i] {
+                        continue 'try_columns;
+                    }
+                }
+
+                combination.push((j, tag_col));
+                added[j] = true;
+            }
+
+            let fixed_column = self.fixed_column();
+            for (col, _) in combination.iter() {
+                dynamic_table_tag_map[*col] = Some(fixed_column);
+            }
+
+            assignments.push(
+                (0..tag_col_rows.len())
+                    .map(|i| {
+                        combination
+                            .iter()
+                            .fold(0, |tag, (tag_col_index, rows)| {
+                                if rows[i] {
+                                    // Assert that only one table in the combination includes this row
+                                    assert_eq!(tag, 0);
+                                    DynamicTable(*tag_col_index).tag()
+                                } else {
+                                    tag
+                                }
+                            })
+                            .into()
+                    })
+                    .collect(),
+            )
+        }
+
+        let dynamic_table_tag_map: Vec<_> = dynamic_table_tag_map
+            .iter()
+            .map(|c| c.expect("A virtual tag column was not mapped to a fixed column"))
+            .collect();
+
+        let replacements: Vec<_> = dynamic_table_tag_map
+            .iter()
+            .map(|column| {
+                Expression::Fixed(FixedQuery {
+                    index: self.query_fixed_index(*column),
+                    column_index: column.index,
+                    rotation: Rotation::cur(),
+                })
+            })
+            .collect();
+
+        self.dynamic_table_tag_map = dynamic_table_tag_map;
+
+        // Substitute virtual tag columns for the real fixed columns in all lookup expressions
+        for expr in self.lookups.iter_mut().flat_map(|lookup| {
+            lookup
+                .input_expressions
+                .iter_mut()
+                .chain(lookup.table_expressions.iter_mut())
+        }) {
+            *expr = expr.evaluate(
+                &|constant| Expression::Constant(constant),
+                &|selector| Expression::Selector(selector),
+                &|vc| replacements[vc.0 .0].clone(),
+                &|query| Expression::Fixed(query),
+                &|query| Expression::Advice(query),
+                &|query| Expression::Instance(query),
+                &|a| -a,
+                &|a, b| a + b,
+                &|a, b| a * b,
+                &|a, f| a * f,
+            );
+        }
+
+        (self, assignments)
+    }
+
     /// This will compress selectors together depending on their provided
     /// assignments. This `ConstraintSystem` will then be modified to add new
     /// fixed columns (representing the actual selectors) and will return the
