@@ -65,7 +65,7 @@ beta = [
 nightly = [
     "beta",
     "halo2_proofs/nightly",
-    "unstable-sha256-gadget",
+    "unstable-sha256-gadget"
 ]
 unstable-sha256-gadget = []
 # Add flags for in-development features above this line.
