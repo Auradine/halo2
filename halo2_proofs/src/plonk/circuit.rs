@@ -360,8 +360,15 @@ impl DynamicTable {
     pub(crate) fn tag(self) -> u64 {
         self.0 as u64 + 1
     }
-}
 
+    /// Includes a row at `offset` in this dynamic lookup table.
+    pub fn add_row<F>(self, region: &mut Region<F>, offset: usize) -> Result<(), Error>
+    where
+        F: Field,
+    {
+        region.add_row_to_table(self, offset)
+    }
+}
 /// `DynamicTable` is used to track the columns and rows comprise a dynamic lookup table.
 /// `DynamicTable` are constructed in the configuration phase by `create_dynamic_table`.
 /// To include a row of a region in a dynamic table use `add_row_to_table` during synthesize.
