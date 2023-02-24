@@ -336,7 +336,6 @@ impl TableColumn {
     }
 }
 
-/// Users of halo2 cannot use this struct.
 /// The index of a dynamic table in `ConstraintSystem.dynamic_tables`.
 /// The `index + 1` serves as this dynamic table's unique tag value.
 #[cfg_attr(
@@ -348,7 +347,7 @@ pub struct DynamicTable(usize);
 
 #[cfg(feature = "unstable-dynamic-lookups")]
 impl DynamicTable {
-    pub(crate) fn index(self) -> usize {
+    pub(crate) const fn index(self) -> usize {
         self.0
     }
 
