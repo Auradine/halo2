@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::iter;
 use std::ops::{Add, Mul, Neg, Range};
 
-use ff::{Field, PrimeField};
+use ff::Field;
 
 use crate::plonk::Assigned;
 #[cfg(feature = "unstable-dynamic-lookups")]
@@ -314,6 +314,17 @@ impl<F: Field> InstanceValue<F> {
     }
 }
 
+#[cfg(feature = "unstable-dynamic-lookups")]
+impl DynamicTable {
+    fn tag_from_index<F: Field>(index: usize) -> F {
+        let mut tag = F::ZERO;
+        for _ in 0..=index {
+            tag += F::ONE;
+        }
+        tag
+    }
+}
+
 impl<F: Field> Assignment<F> for MockProver<F> {
     fn enter_region<NR, N>(&mut self, name: N)
     where
@@ -496,7 +507,7 @@ impl<F: Field> Assignment<F> for MockProver<F> {
     }
 }
 
-impl<F: PrimeField + Ord> MockProver<F> {
+impl<F: Field + Ord> MockProver<F> {
     /// Runs a synthetic keygen-and-prove operation on the given circuit, collecting data
     /// about the constraints and their assignments.
     pub fn run<ConcreteCircuit: Circuit<F>>(
@@ -955,7 +966,7 @@ impl<F: PrimeField + Ord> MockProver<F> {
                             .enumerate()
                             .filter_map(move |(row_index, r)| match r {
                                 (CellValue::Assigned(tag), true) => {
-                                    if F::from(col_index as u64 + 1) == *tag {
+                                    if DynamicTable::tag_from_index::<F>(col_index) == *tag {
                                         let table = &self.cs.dynamic_tables[col_index];
                                         Some(table.columns.iter().filter_map(move |col| match col.column_type() {
                                             Any::Advice => unassigned_error(&self.regions, self. advice[col_index][row_index], table, *col, row_index),
@@ -1674,7 +1685,7 @@ mod tests {
                 Err(vec![VerifyFailure::DynamicTableCellNotAssigned {
                     dynamic_table: DynamicTableInfo {
                         name: "table".to_string(),
-                        index: DynamicTable::from_index(0),
+                        index: 0,
                         columns: vec![Column::new(1, Any::Advice)],
                     },
                     region: (0, "table".to_string(),).into(),
@@ -1749,7 +1760,7 @@ mod tests {
                 Err(vec![VerifyFailure::DynamicTableCellNotAssigned {
                     dynamic_table: DynamicTableInfo {
                         name: "table".to_string(),
-                        index: DynamicTable::from_index(0),
+                        index: 0,
                         columns: vec![Column::new(1, Any::Advice)],
                     },
                     region: (0, "table".to_string(),).into(),

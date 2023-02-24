@@ -3,8 +3,6 @@ use core::cmp::max;
 use core::fmt;
 use core::ops::{Add, Mul};
 use ff::Field;
-#[cfg(feature = "unstable-dynamic-lookups")]
-use ff::PrimeField;
 use std::{
     convert::TryFrom,
     ops::{Neg, Sub},
@@ -354,13 +352,12 @@ impl DynamicTable {
         self.0
     }
 
-    #[cfg(test)]
-    pub(crate) fn from_index(index: usize) -> Self {
-        DynamicTable(index)
-    }
-
-    pub(crate) fn tag(self) -> u64 {
-        self.0 as u64 + 1
+    pub(crate) fn tag<F: Field>(self) -> F {
+        let mut tag = F::ZERO;
+        for _ in 0..=self.0 {
+            tag += F::ONE;
+        }
+        tag
     }
 
     /// Includes a row at `offset` in this dynamic lookup table.
@@ -381,7 +378,7 @@ impl DynamicTable {
 #[cfg(feature = "unstable-dynamic-lookups")]
 pub struct DynamicTableInfo {
     pub(crate) name: String,
-    pub(crate) index: DynamicTable,
+    pub(crate) index: usize,
     /// Columns contained in this table, excluding the tag column.
     pub(crate) columns: Vec<Column<Any>>,
 }
@@ -389,7 +386,7 @@ pub struct DynamicTableInfo {
 #[cfg(feature = "unstable-dynamic-lookups")]
 impl fmt::Display for DynamicTableInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DynamicTable {} ('{}')", self.index.0, self.name)
+        write!(f, "DynamicTable {} ('{}')", self.index, self.name)
     }
 }
 
@@ -1216,10 +1213,7 @@ impl<F: Field> ConstraintSystem<F> {
         &mut self,
         table: &DynamicTable,
         table_map: impl FnOnce(&mut VirtualCells<'_, F>) -> DynamicTableMap<F>,
-    ) -> usize
-    where
-        F: PrimeField,
-    {
+    ) -> usize {
         let mut cells = VirtualCells::new(self);
         let DynamicTableMap {
             selector,
@@ -1257,7 +1251,7 @@ impl<F: Field> ConstraintSystem<F> {
             .collect();
 
         table_map.push((
-            selector.clone() * Expression::Constant(F::from(table.tag())),
+            selector.clone() * Expression::Constant(table.tag()),
             selector * Expression::VirtualColumn(VirtualColumn(*table)),
         ));
 
@@ -1416,10 +1410,7 @@ impl<F: Field> ConstraintSystem<F> {
     pub(crate) fn compress_dynamic_table_tags(
         mut self,
         dynamic_tables: &[Vec<bool>],
-    ) -> (Self, Vec<Vec<F>>)
-    where
-        F: PrimeField,
-    {
+    ) -> (Self, Vec<Vec<F>>) {
         assert!(self.dynamic_table_tag_map.is_empty());
         assert_eq!(self.dynamic_tables.len(), dynamic_tables.len());
 
@@ -1473,16 +1464,15 @@ impl<F: Field> ConstraintSystem<F> {
                     .map(|i| {
                         combination
                             .iter()
-                            .fold(0, |tag, (tag_col_index, rows)| {
+                            .fold(F::ZERO, |tag, (tag_col_index, rows)| {
                                 if rows[i] {
                                     // Assert that only one table in the combination includes this row
-                                    assert_eq!(tag, 0);
+                                    assert_eq!(tag, F::ZERO);
                                     DynamicTable(*tag_col_index).tag()
                                 } else {
                                     tag
                                 }
                             })
-                            .into()
                     })
                     .collect(),
             )
@@ -1674,7 +1664,7 @@ impl<F: Field> ConstraintSystem<F> {
         fixed_columns: &[Column<Fixed>],
         advice_columns: &[Column<Advice>],
     ) -> DynamicTable {
-        let index = DynamicTable(self.dynamic_tables.len());
+        let index = self.dynamic_tables.len();
         let columns: Vec<_> = fixed_columns
             .iter()
             .map(|f| Column::<Any>::from(*f))
@@ -1688,7 +1678,7 @@ impl<F: Field> ConstraintSystem<F> {
         };
 
         self.dynamic_tables.push(table);
-        index
+        DynamicTable(index)
     }
 
     /// Allocates a new fixed column that can be used in a lookup table.

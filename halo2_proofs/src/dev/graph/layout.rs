@@ -1,4 +1,4 @@
-use ff::PrimeField;
+use ff::Field;
 use plotters::{
     coord::Shift,
     prelude::{DrawingArea, DrawingAreaErrorKind, DrawingBackend},
@@ -82,7 +82,7 @@ impl CircuitLayout {
     }
 
     /// Renders the given circuit on the given drawing area.
-    pub fn render<F: PrimeField, ConcreteCircuit: Circuit<F>, DB: DrawingBackend>(
+    pub fn render<F: Field, ConcreteCircuit: Circuit<F>, DB: DrawingBackend>(
         self,
         k: u32,
         circuit: &ConcreteCircuit,
