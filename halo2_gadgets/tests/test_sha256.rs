@@ -142,7 +142,6 @@ fn bench(name: &str, k: u32) {
 }
 
 #[test]
-fn test_sha256() {
+fn test_sha256_main() {
     bench("sha256", 17);
-    // bench("sha256", 20, c);
 }
