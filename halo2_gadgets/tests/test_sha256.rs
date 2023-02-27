@@ -64,30 +64,26 @@ fn bench(name: &str, k: u32) {
             ];
 
             // // Create a message of length 31 blocks
-            // let mut input = Vec::with_capacity(31 * BLOCK_SIZE);
-            // for _ in 0..31 {
-            //     input.extend_from_slice(&test_input);
-            // }
+            let mut input = Vec::with_capacity(31 * BLOCK_SIZE);
+            for _ in 0..31 {
+                input.extend_from_slice(&test_input);
+            }
 
-            Sha256::digest(
-                table16_chip,
-                layouter.namespace(|| "'abc' * 2"),
-                &test_input,
-            )?;
+            Sha256::digest(table16_chip, layouter.namespace(|| "'abc' * 2"), &input)?;
 
             Ok(())
         }
     }
 
     // Initialize the polynomial commitment parameters
-    let params_path = Path::new("./benches/sha256_assets/sha256_params");
+    let params_path = Path::new("./halo2_gadgets/tests/sha256_params");
     if File::open(params_path).is_err() {
         let params: Params<EqAffine> = Params::new(k);
         let mut buf = Vec::new();
 
         params.write(&mut buf).expect("Failed to write params");
-        create_dir("./benches/sha256_assets")
-            .unwrap_or_else(|_| println!("Params dir already exists"));
+        // create_dir("./halo2_gadgets/tests")
+        //     .unwrap_or_else(|_| println!("Params dir already exists"));
         let mut file = File::create(params_path).expect("Failed to create sha256_params");
 
         file.write_all(&buf[..])
@@ -118,7 +114,7 @@ fn bench(name: &str, k: u32) {
     }
 
     // Create a proof
-    let proof_path = Path::new("./benches/sha256_assets/sha256_proof");
+    let proof_path = Path::new("./halo2_gadgets/tests/sha256_proof");
     if File::open(proof_path).is_err() {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         create_proof(&params, &pk, &[circuit], &[], OsRng, &mut transcript)
