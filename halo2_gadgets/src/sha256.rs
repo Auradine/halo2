@@ -127,7 +127,7 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
         let rem = chunks_iter.remainder();
         self.cur_block.extend_from_slice(rem);
 
-        println!("2: rem.len = {}", rem.len());
+        // println!("2: rem.len = {}", rem.len());
         Ok(())
     }
 
@@ -148,14 +148,14 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
                     .try_into()
                     .expect("cur_block.len() == BLOCK_SIZE"),
             )?;
-            println!("3");
+            // println!("3");
         }
         let r = self
             .chip
             .digest(&mut layouter, &self.state)
             .map(Sha256Digest);
 
-        println!("4: {:?}", r);
+        // println!("4: {:?}", r);
 
         return r;
     }
@@ -171,7 +171,7 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
         hasher.update(layouter.namespace(|| "update"), data)?;
         let r = hasher.finalize(layouter.namespace(|| "finalize"));
 
-        println!("5: {:?}", r);
+        // println!("5: {:?}", r);
         return r;
     }
 }

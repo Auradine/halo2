@@ -26,5 +26,6 @@
 pub mod ecc;
 pub mod poseidon;
 pub mod sha256;
+pub mod sha256_input;
 pub mod sinsemilla;
 pub mod utilities;

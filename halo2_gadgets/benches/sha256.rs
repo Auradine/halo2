@@ -20,6 +20,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use halo2_gadgets::sha256::{BlockWord, Sha256, Table16Chip, Table16Config, BLOCK_SIZE};
 
+use halo2_gadgets::sha256_input::get_input;
+
 #[allow(dead_code)]
 fn bench(name: &str, k: u32, c: &mut Criterion) {
     #[derive(Default, Clone, Copy)]
@@ -46,32 +48,29 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
             let table16_chip = Table16Chip::construct(config);
 
             // Test vector: "abc"
-            let test_input = [
-                BlockWord(Some(0b01100001011000100110001110000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000000000)),
-                BlockWord(Some(0b00000000000000000000000000011000)),
-            ];
+            // let test_input = [
+            //     BlockWord(Some(0b01100001011000100110001110000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     BlockWord(Some(0b00000000000000000000000000000000)),
+            //     // BlockWord(Some(0b00000000000000000000000000011000)),
+            // ];
 
-            // // Create a message of length 31 blocks
-            let mut input = Vec::with_capacity(31 * BLOCK_SIZE);
-            for _ in 0..31 {
-                input.extend_from_slice(&test_input);
-            }
+            let test_input = get_input();
 
-            let sum = Sha256::digest(table16_chip, layouter.namespace(|| "'abc'"), &input).unwrap();
+            // println!("\ntest_input: {:?}", test_input);
+            let sum = Sha256::digest(table16_chip, layouter.namespace(|| "'abc'"), &test_input);
             println!("\nsum: {:?}", sum);
 
             Ok(())
@@ -113,7 +112,7 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
     let mut loop_idx = 0;
     group.bench_function(&prover_name, |b| {
         b.iter(|| {
-            println!("\n{}:{}", &prover_name, loop_idx);
+            // println!("\n{}:{}", &prover_name, loop_idx);
             loop_idx += 1;
 
             let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
@@ -144,7 +143,7 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
     loop_idx = 0;
     group.bench_function(&verifier_name, |b| {
         b.iter(|| {
-            println!("\n{}:{}", &verifier_name, loop_idx);
+            // println!("\n{}:{}", &verifier_name, loop_idx);
             loop_idx += 1;
 
             let strategy = SingleVerifier::new(&params);
