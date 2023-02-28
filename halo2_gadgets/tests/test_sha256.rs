@@ -1,4 +1,12 @@
 use halo2_gadgets::sha256::{BlockWord, BLOCK_SIZE};
+use std::num::ParseIntError;
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
 
 #[test]
 fn test_sha256_main() {
@@ -8,10 +16,15 @@ fn test_sha256_main() {
 
     // println!("{:?}", ch_sh);
     // println!("{:?}", decrypted_serv_ext);
-    println!("{:?}", h3);
+    // println!("{:?}", h3);
 
     let plaintext = format!("{}{}", ch_sh, decrypted_serv_ext);
-    println!("plaintext({}): {:?}", plaintext.len(), plaintext);
+    // println!("plaintext({}): {:?}", plaintext.len(), plaintext);
+
+    let decoded = decode_hex(&plaintext).unwrap();
+    println!("decoded({}): {:?}", decoded.len(), decoded);
+
+    // pad decoded to multiples of 512
 
     // Test vector: "abc"
     let test_input = [

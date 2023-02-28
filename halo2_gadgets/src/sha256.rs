@@ -98,6 +98,7 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
 
         // If we still don't have a full block, we are done.
         if self.cur_block.len() < BLOCK_SIZE {
+            println!("1");
             return Ok(());
         }
 
@@ -126,6 +127,7 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
         let rem = chunks_iter.remainder();
         self.cur_block.extend_from_slice(rem);
 
+        println!("2: rem.len = {}", rem.len());
         Ok(())
     }
 
@@ -146,10 +148,16 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
                     .try_into()
                     .expect("cur_block.len() == BLOCK_SIZE"),
             )?;
+            println!("3");
         }
-        self.chip
+        let r = self
+            .chip
             .digest(&mut layouter, &self.state)
-            .map(Sha256Digest)
+            .map(Sha256Digest);
+
+        println!("4: {:?}", r);
+
+        return r;
     }
 
     /// Convenience function to compute hash of the data. It will handle hasher creation,
@@ -161,6 +169,9 @@ impl<F: FieldExt, Sha256Chip: Sha256Instructions<F>> Sha256<F, Sha256Chip> {
     ) -> Result<Sha256Digest<Sha256Chip::BlockWord>, Error> {
         let mut hasher = Self::new(chip, layouter.namespace(|| "init"))?;
         hasher.update(layouter.namespace(|| "update"), data)?;
-        hasher.finalize(layouter.namespace(|| "finalize"))
+        let r = hasher.finalize(layouter.namespace(|| "finalize"));
+
+        println!("5: {:?}", r);
+        return r;
     }
 }

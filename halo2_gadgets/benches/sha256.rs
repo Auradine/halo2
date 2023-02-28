@@ -65,13 +65,14 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
                 BlockWord(Some(0b00000000000000000000000000011000)),
             ];
 
-            // Create a message of length 31 blocks
+            // // Create a message of length 31 blocks
             let mut input = Vec::with_capacity(31 * BLOCK_SIZE);
             for _ in 0..31 {
                 input.extend_from_slice(&test_input);
             }
 
-            Sha256::digest(table16_chip, layouter.namespace(|| "'abc' * 2"), &input)?;
+            let sum = Sha256::digest(table16_chip, layouter.namespace(|| "'abc'"), &input).unwrap();
+            println!("\nsum: {:?}", sum);
 
             Ok(())
         }
@@ -124,7 +125,8 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
 
     // Create a proof
     let proof_path = Path::new("./benches/sha256_assets/sha256_proof");
-    if File::open(&proof_path).is_err() {
+    if true {
+        // File::open(&proof_path).is_err() {
         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
         create_proof(&params, &pk, &[circuit], &[], OsRng, &mut transcript)
             .expect("proof generation should not fail");
