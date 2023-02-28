@@ -22,7 +22,7 @@ use halo2_gadgets::sha256::{BlockWord, Sha256, Table16Chip, Table16Config, BLOCK
 
 #[allow(dead_code)]
 fn bench(name: &str, k: u32, c: &mut Criterion) {
-    #[derive(Default)]
+    #[derive(Default, Clone, Copy)]
     struct MyCircuit {}
 
     impl Circuit<pallas::Base> for MyCircuit {
@@ -77,6 +77,9 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
         }
     }
 
+    let mut group = c.benchmark_group("sha256");
+    group.sample_size(10);
+
     // Initialize the polynomial commitment parameters
     let params_path = Path::new("./benches/sha256_assets/sha256_params");
     if File::open(&params_path).is_err() {
@@ -102,18 +105,22 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
 
     let circuit: MyCircuit = MyCircuit {};
 
-    // let prover_name = name.to_string() + "-prover";
+    let prover_name = name.to_string() + "-prover";
     let verifier_name = name.to_string() + "-verifier";
 
-    // /// Benchmark proof creation
-    // c.bench_function(&prover_name, |b| {
-    //     b.iter(|| {
-    //         let mut transcript = Blake2bWrite::init(Fq::one());
-    //         create_proof(&params, &pk, &circuit, &[], &mut transcript)
-    //             .expect("proof generation should not fail");
-    //         let proof: Vec<u8> = transcript.finalize();
-    //     });
-    // });
+    // Benchmark proof creation
+    let mut loop_idx = 0;
+    group.bench_function(&prover_name, |b| {
+        b.iter(|| {
+            println!("\n{}:{}", &prover_name, loop_idx);
+            loop_idx += 1;
+
+            let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+            create_proof(&params, &pk, &[circuit], &[], OsRng, &mut transcript)
+                .expect("proof generation should not fail");
+            let _proof: Vec<u8> = transcript.finalize();
+        });
+    });
 
     // Create a proof
     let proof_path = Path::new("./benches/sha256_assets/sha256_proof");
@@ -132,8 +139,12 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
         .read_to_end(&mut proof)
         .expect("Couldn't read proof");
 
-    c.bench_function(&verifier_name, |b| {
+    loop_idx = 0;
+    group.bench_function(&verifier_name, |b| {
         b.iter(|| {
+            println!("\n{}:{}", &verifier_name, loop_idx);
+            loop_idx += 1;
+
             let strategy = SingleVerifier::new(&params);
             let mut transcript = Blake2bRead::<_, _, Challenge255<_>>::init(&proof[..]);
             assert!(verify_proof(&params, pk.get_vk(), strategy, &[], &mut transcript).is_ok());
