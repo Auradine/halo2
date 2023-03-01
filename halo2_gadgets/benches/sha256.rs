@@ -24,7 +24,7 @@ use halo2_gadgets::sha256_input::get_input;
 
 #[allow(dead_code)]
 fn bench(name: &str, k: u32, c: &mut Criterion) {
-    #[derive(Default, Clone, Copy)]
+    #[derive(Debug, Default, Clone, Copy)]
     struct MyCircuit {}
 
     impl Circuit<pallas::Base> for MyCircuit {
@@ -36,7 +36,161 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
         }
 
         fn configure(meta: &mut ConstraintSystem<pallas::Base>) -> Self::Config {
-            Table16Chip::configure(meta)
+            let config = Table16Chip::configure(meta);
+            // println!("config = {:?}", config);
+
+            // let config0 = Table16Config {
+            //     lookup: SpreadTableConfig {
+            //         input: SpreadInputs {
+            //             tag: Column {
+            //                 index: 7,
+            //                 column_type: Advice,
+            //             },
+            //             dense: Column {
+            //                 index: 8,
+            //                 column_type: Advice,
+            //             },
+            //             spread: Column {
+            //                 index: 9,
+            //                 column_type: Advice,
+            //             },
+            //         },
+            //         table: SpreadTable {
+            //             tag: TableColumn {
+            //                 inner: Column {
+            //                     index: 0,
+            //                     column_type: Fixed,
+            //                 },
+            //             },
+            //             dense: TableColumn {
+            //                 inner: Column {
+            //                     index: 1,
+            //                     column_type: Fixed,
+            //                 },
+            //             },
+            //             spread: TableColumn {
+            //                 inner: Column {
+            //                     index: 2,
+            //                     column_type: Fixed,
+            //                 },
+            //             },
+            //         },
+            //     },
+            //     message_schedule: MessageScheduleConfig {
+            //         lookup: SpreadInputs {
+            //             tag: Column {
+            //                 index: 7,
+            //                 column_type: Advice,
+            //             },
+            //             dense: Column {
+            //                 index: 8,
+            //                 column_type: Advice,
+            //             },
+            //             spread: Column {
+            //                 index: 9,
+            //                 column_type: Advice,
+            //             },
+            //         },
+            //         message_schedule: Column {
+            //             index: 0,
+            //             column_type: Advice,
+            //         },
+            //         extras: [
+            //             Column {
+            //                 index: 1,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 2,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 3,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 4,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 5,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 6,
+            //                 column_type: Advice,
+            //             },
+            //         ],
+            //         s_word: Selector(11, true),
+            //         s_decompose_0: Selector(12, true),
+            //         s_decompose_1: Selector(13, true),
+            //         s_decompose_2: Selector(14, true),
+            //         s_decompose_3: Selector(15, true),
+            //         s_lower_sigma_0: Selector(16, true),
+            //         s_lower_sigma_1: Selector(17, true),
+            //         s_lower_sigma_0_v2: Selector(18, true),
+            //         s_lower_sigma_1_v2: Selector(19, true),
+            //     },
+            //     compression: CompressionConfig {
+            //         lookup: SpreadInputs {
+            //             tag: Column {
+            //                 index: 7,
+            //                 column_type: Advice,
+            //             },
+            //             dense: Column {
+            //                 index: 8,
+            //                 column_type: Advice,
+            //             },
+            //             spread: Column {
+            //                 index: 9,
+            //                 column_type: Advice,
+            //             },
+            //         },
+            //         message_schedule: Column {
+            //             index: 0,
+            //             column_type: Advice,
+            //         },
+            //         extras: [
+            //             Column {
+            //                 index: 1,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 2,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 3,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 4,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 5,
+            //                 column_type: Advice,
+            //             },
+            //             Column {
+            //                 index: 6,
+            //                 column_type: Advice,
+            //             },
+            //         ],
+            //         s_ch: Selector(0, true),
+            //         s_ch_neg: Selector(1, true),
+            //         s_maj: Selector(2, true),
+            //         s_h_prime: Selector(3, true),
+            //         s_a_new: Selector(4, true),
+            //         s_e_new: Selector(5, true),
+            //         s_upper_sigma_0: Selector(6, true),
+            //         s_upper_sigma_1: Selector(7, true),
+            //         s_decompose_abcd: Selector(8, true),
+            //         s_decompose_efgh: Selector(9, true),
+            //         s_digest: Selector(10, true),
+            //     },
+            // };
+
+            return config;
         }
 
         fn synthesize(
@@ -118,6 +272,7 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
             let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
             create_proof(&params, &pk, &[circuit], &[], OsRng, &mut transcript)
                 .expect("proof generation should not fail");
+
             let _proof: Vec<u8> = transcript.finalize();
         });
     });
@@ -133,6 +288,8 @@ fn bench(name: &str, k: u32, c: &mut Criterion) {
         let mut file = File::create(&proof_path).expect("Failed to create sha256_proof");
         file.write_all(&proof[..]).expect("Failed to write proof");
     }
+
+    // println!("circuit = {:?}", circuit);
 
     let mut proof_fs = File::open(&proof_path).expect("couldn't load sha256_proof");
     let mut proof = Vec::<u8>::new();
